@@ -270,16 +270,22 @@ export function escapeMarkdownV2(text: string): string {
 
 /**
  * Convert Markdown to Telegram HTML
- * Basic conversion for common patterns
+ * Uses a placeholder approach to protect code content from bold/italic transformations
  */
 export function markdownToTelegramHtml(text: string): string {
   let result = escapeHtml(text);
 
-  // Code block must be processed before inline code to avoid partial matches
-  result = result.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  // Extract and protect code blocks / inline code with placeholders
+  const placeholders: string[] = [];
+  const placeholder = (s: string) => {
+    const idx = placeholders.length;
+    placeholders.push(s);
+    return `\x00PH${idx}\x00`;
+  };
 
-  // Inline code
-  result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Code blocks must be extracted before inline code
+  result = result.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, _lang, code) => placeholder(`<pre><code>${code}</code></pre>`));
+  result = result.replace(/`([^`]+)`/g, (_, code) => placeholder(`<code>${code}</code>`));
 
   // Bold: **text** or __text__
   result = result.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -291,6 +297,9 @@ export function markdownToTelegramHtml(text: string): string {
 
   // Links: [text](url)
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  // Restore placeholders
+  result = result.replace(/\x00PH(\d+)\x00/g, (_, idx) => placeholders[Number(idx)]);
 
   return result;
 }
