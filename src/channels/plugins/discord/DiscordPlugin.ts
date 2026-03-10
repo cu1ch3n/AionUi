@@ -210,20 +210,30 @@ export class DiscordPlugin extends BasePlugin {
     const textChannel = discordChannel as TextChannel;
     const { content, components } = toDiscordSendOptions(message);
 
-    // Truncate if too long (can't split when editing)
-    const truncatedContent = content.length > DISCORD_MESSAGE_LIMIT ? content.slice(0, DISCORD_MESSAGE_LIMIT - 3) + '...' : content;
-
     // Skip edit if content is empty or whitespace-only
-    if (!truncatedContent.trim()) {
+    if (!content.trim()) {
       return;
     }
 
     try {
       const msg = await textChannel.messages.fetch(messageId);
-      await msg.edit({
-        content: truncatedContent,
-        components,
-      });
+
+      if (content.length <= DISCORD_MESSAGE_LIMIT) {
+        // Fits in one message — just edit
+        await msg.edit({ content, components });
+      } else {
+        // Content exceeds limit: edit first chunk, send overflow as new messages
+        const chunks = splitMessage(content, DISCORD_MESSAGE_LIMIT);
+        await msg.edit({ content: chunks[0] });
+
+        for (let i = 1; i < chunks.length; i++) {
+          const isLastChunk = i === chunks.length - 1;
+          await textChannel.send({
+            content: chunks[i],
+            components: isLastChunk ? components : undefined,
+          });
+        }
+      }
     } catch (error: any) {
       // Ignore "Unknown Message" errors (message may have been deleted)
       if (error.code === 10008) {
