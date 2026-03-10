@@ -247,7 +247,7 @@ export class DiscordPlugin extends BasePlugin {
 
       // Preflight: check access control before processing
       const botUserId = this.client?.user?.id;
-      if (botUserId && !shouldProcessMessage({ message, botUserId, config: this.accessConfig })) {
+      if (!botUserId || !shouldProcessMessage({ message, botUserId, config: this.accessConfig })) {
         return; // Silent drop
       }
 

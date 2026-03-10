@@ -28,6 +28,18 @@ function parseProxyString(proxyString: string): string | null {
   return `${scheme}://${hostPort}`;
 }
 
+/** Guard to prevent double-patching https.request */
+let httpsPatched = false;
+
+/**
+ * Check if a hostname is a Discord domain.
+ * Uses exact match or subdomain match to avoid false positives (e.g. notdiscord.com).
+ */
+function isDiscordHost(host: string): boolean {
+  const discordDomains = ['gateway.discord.gg', 'discord.com', 'discord.gg'];
+  return discordDomains.some((d) => host === d || host.endsWith('.' + d));
+}
+
 /**
  * Patch https.request to route Discord gateway WebSocket connections through the proxy.
  *
@@ -36,8 +48,10 @@ function parseProxyString(proxyString: string): string | null {
  * remove the custom createConnection so the proxy agent can handle tunneling.
  */
 function patchHttpsForDiscordGateway(proxyUri: string): void {
+  if (httpsPatched) return;
+  httpsPatched = true;
+
   const proxyAgent = new HttpsProxyAgent(proxyUri);
-  const discordHosts = ['gateway.discord.gg', 'discord.com', 'discord.gg'];
   const originalRequest = https.request;
 
   https.request = function patchedRequest(
@@ -47,7 +61,7 @@ function patchHttpsForDiscordGateway(proxyUri: string): void {
 
     if (typeof opts === 'object' && 'host' in opts) {
       const host = (opts as RequestOptions).host || '';
-      if (discordHosts.some((d) => host.endsWith(d))) {
+      if (isDiscordHost(host)) {
         const patchedOpts = { ...(opts as RequestOptions) };
         // Remove ws's createConnection so the proxy agent can handle it
         delete (patchedOpts as any).createConnection;
@@ -58,6 +72,23 @@ function patchHttpsForDiscordGateway(proxyUri: string): void {
 
     return originalRequest.apply(this, args as any);
   } as typeof https.request;
+}
+
+/**
+ * Redact credentials from a proxy URI for safe logging.
+ * e.g. http://user:pass@proxy:8080 -> http://***@proxy:8080
+ */
+function redactProxyUri(uri: string): string {
+  try {
+    const url = new URL(uri);
+    if (url.username || url.password) {
+      url.username = '***';
+      url.password = '';
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return uri;
+  }
 }
 
 /**
@@ -72,7 +103,7 @@ export async function resolveSystemProxy(url: string): Promise<DiscordProxyResul
 
     if (!proxyUri) return null;
 
-    console.log(`[DiscordProxy] Using system proxy: ${proxyUri}`);
+    console.log(`[DiscordProxy] Using system proxy: ${redactProxyUri(proxyUri)}`);
 
     // Patch https.request for gateway WebSocket proxy support
     patchHttpsForDiscordGateway(proxyUri);
