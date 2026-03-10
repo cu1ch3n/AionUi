@@ -508,8 +508,8 @@ export type ChannelPlatform = 'telegram' | 'lark' | 'dingtalk' | 'discord' | (st
  * Type guard to check if a string is a known built-in ChannelPlatform.
  * Extension platform types are valid but not matched here.
  */
-export function isBuiltinChannelPlatform(value: string): value is 'telegram' | 'lark' | 'dingtalk' {
-  return value === 'telegram' || value === 'lark' || value === 'dingtalk';
+export function isBuiltinChannelPlatform(value: string): value is 'telegram' | 'lark' | 'dingtalk' | 'discord' {
+  return value === 'telegram' || value === 'lark' || value === 'dingtalk' || value === 'discord';
 }
 
 /**

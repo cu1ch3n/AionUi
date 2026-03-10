@@ -183,7 +183,7 @@ export class ChannelManager {
     }
 
     const enabledPlugins = result.data.filter((p) => p.enabled);
-    const builtinStartableTypes = new Set<PluginType>(['telegram', 'lark', 'dingtalk']);
+    const builtinStartableTypes = new Set<PluginType>(['telegram', 'lark', 'dingtalk', 'discord']);
     const extensionRegistry = ExtensionRegistry.getInstance();
 
     for (const plugin of enabledPlugins) {
@@ -523,7 +523,7 @@ export class ChannelManager {
       // For gemini + model info: update existing conversations' model field
       if (newType === 'gemini' && model?.id && model?.useModel) {
         if (isBuiltinChannelPlatform(platform)) {
-          const builtinPlatform: 'telegram' | 'lark' | 'dingtalk' = platform;
+          const builtinPlatform: 'telegram' | 'lark' | 'dingtalk' | 'discord' = platform;
           const fullModel = await getChannelDefaultModel(builtinPlatform);
           const db = getDatabase();
           const result = db.updateChannelConversationModel(builtinPlatform, 'gemini', fullModel);
