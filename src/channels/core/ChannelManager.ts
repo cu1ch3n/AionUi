@@ -6,12 +6,14 @@
 
 import { getDatabase } from '@/process/database';
 import { ExtensionRegistry } from '@/extensions';
+import { ProcessConfig } from '@/process/initStorage';
 import { getChannelMessageService } from '../agent/ChannelMessageService';
 import { getChannelDefaultModel } from '../actions/SystemActions';
 import { ActionExecutor } from '../gateway/ActionExecutor';
 import { PluginManager, registerPlugin } from '../gateway/PluginManager';
 import { PairingService } from '../pairing/PairingService';
 import { DingTalkPlugin } from '../plugins/dingtalk/DingTalkPlugin';
+import { DiscordPlugin } from '../plugins/discord/DiscordPlugin';
 import { LarkPlugin } from '../plugins/lark/LarkPlugin';
 import { TelegramPlugin } from '../plugins/telegram/TelegramPlugin';
 import { isBuiltinChannelPlatform, resolveChannelConvType } from '../types';
@@ -50,6 +52,7 @@ export class ChannelManager {
     registerPlugin('telegram', TelegramPlugin);
     registerPlugin('lark', LarkPlugin);
     registerPlugin('dingtalk', DingTalkPlugin);
+    registerPlugin('discord', DiscordPlugin);
   }
 
   /**
@@ -202,6 +205,17 @@ export class ChannelManager {
 
       try {
         await this.startPlugin(plugin);
+
+        // Load access config for Discord plugin on startup
+        if (plugin.type === 'discord') {
+          try {
+            const accessConfig = await ProcessConfig.get('assistant.discord.accessControl');
+            const discordPlugin = this.pluginManager?.getAllPlugins().find((p) => p.type === 'discord') as DiscordPlugin | undefined;
+            discordPlugin?.updateAccessConfig(accessConfig ?? {});
+          } catch {
+            // Ignore config load errors
+          }
+        }
       } catch (error) {
         console.error(`[ChannelManager] Failed to start plugin ${plugin.id}:`, error);
         // Update status to error
@@ -262,6 +276,11 @@ export class ChannelManager {
       const clientSecret = config.clientSecret as string | undefined;
       if (clientId && clientSecret) {
         credentials = { clientId, clientSecret };
+      }
+    } else if (pluginType === 'discord') {
+      const token = config.token as string | undefined;
+      if (token) {
+        credentials = { token };
       }
     } else {
       // Extension or unknown plugin type:
@@ -416,6 +435,15 @@ export class ChannelManager {
       };
     }
 
+    if (pluginType === 'discord') {
+      const result = await DiscordPlugin.testConnection(token);
+      return {
+        success: result.success,
+        botUsername: result.botInfo?.username,
+        error: result.error,
+      };
+    }
+
     // Extension plugins: test connection not supported yet (will be handled by the plugin itself on start)
     return { success: true, botUsername: undefined, error: undefined };
   }
@@ -511,6 +539,18 @@ export class ChannelManager {
       const cleared = this.sessionManager.clearAllSessions();
       console.log(`[ChannelManager] syncChannelSettings: platform=${platform}, type=${newType}, cleared=${cleared}`);
 
+      // Push access config to Discord plugin if applicable
+      if (platform === 'discord') {
+        try {
+          const accessConfig = await ProcessConfig.get('assistant.discord.accessControl');
+          const plugins = this.pluginManager?.getAllPlugins();
+          const discordPlugin = plugins?.find((p) => p.type === 'discord') as DiscordPlugin | undefined;
+          discordPlugin?.updateAccessConfig(accessConfig ?? {});
+        } catch {
+          // Ignore config load errors
+        }
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error(`[ChannelManager] syncChannelSettings failed:`, error);
@@ -570,6 +610,17 @@ export class ChannelManager {
 
   getActionExecutor(): ActionExecutor | null {
     return this.actionExecutor;
+  }
+
+  /**
+   * Get Discord guild channels from the running Discord plugin.
+   * Returns empty array if bot is not connected.
+   */
+  async getDiscordChannels(): Promise<Array<{ guildId: string; guildName: string; channels: Array<{ id: string; name: string }> }>> {
+    const plugins = this.pluginManager?.getAllPlugins();
+    const discordPlugin = plugins?.find((p) => p.type === 'discord') as DiscordPlugin | undefined;
+    if (!discordPlugin) return [];
+    return discordPlugin.getGuildChannels();
   }
 }
 

@@ -22,6 +22,8 @@ import { convertHtmlToLarkMarkdown } from '../plugins/lark/LarkAdapter';
 import { createMainMenuCard as createDingTalkMainMenuCard, createErrorRecoveryCard as createDingTalkErrorRecoveryCard, createResponseActionsCard as createDingTalkResponseActionsCard, createToolConfirmationCard as createDingTalkToolConfirmationCard } from '../plugins/dingtalk/DingTalkCards';
 import { convertHtmlToDingTalkMarkdown } from '../plugins/dingtalk/DingTalkAdapter';
 import { createMainMenuKeyboard, createToolConfirmationKeyboard } from '../plugins/telegram/TelegramKeyboards';
+import { createMainMenuButtons as createDiscordMainMenuButtons, createToolConfirmationButtons as createDiscordToolConfirmationButtons, createErrorRecoveryButtons as createDiscordErrorRecoveryButtons } from '../plugins/discord/DiscordComponents';
+import { convertHtmlToDiscordMarkdown } from '../plugins/discord/DiscordAdapter';
 import { escapeHtml } from '../plugins/telegram/TelegramAdapter';
 import type { ChannelAgentType, IUnifiedIncomingMessage, IUnifiedOutgoingMessage, PluginType } from '../types';
 import type { PluginManager } from './PluginManager';
@@ -39,6 +41,9 @@ function getMainMenuMarkup(platform: PluginType) {
   if (platform === 'dingtalk') {
     return createDingTalkMainMenuCard();
   }
+  if (platform === 'discord') {
+    return createDiscordMainMenuButtons();
+  }
   return createMainMenuKeyboard();
 }
 
@@ -49,7 +54,7 @@ function getResponseActionsMarkup(platform: PluginType, text?: string) {
   if (platform === 'dingtalk') {
     return createDingTalkResponseActionsCard(text || '');
   }
-  // Telegram and Lark: no response action buttons
+  // Telegram, Lark, and Discord: no response action buttons
   return undefined;
 }
 
@@ -62,6 +67,9 @@ function getToolConfirmationMarkup(platform: PluginType, callId: string, options
   }
   if (platform === 'dingtalk') {
     return createDingTalkToolConfirmationCard(callId, title || 'Confirmation', description || 'Please confirm', options);
+  }
+  if (platform === 'discord') {
+    return createDiscordToolConfirmationButtons(callId, options);
   }
   return createToolConfirmationKeyboard(callId, options);
 }
@@ -76,6 +84,9 @@ function getErrorRecoveryMarkup(platform: PluginType, errorMessage?: string) {
   if (platform === 'dingtalk') {
     return createDingTalkErrorRecoveryCard(errorMessage);
   }
+  if (platform === 'discord') {
+    return createDiscordErrorRecoveryButtons(errorMessage);
+  }
   return createMainMenuKeyboard(); // Telegram uses main menu for recovery
 }
 
@@ -88,6 +99,9 @@ function formatTextForPlatform(text: string, platform: PluginType): string {
   }
   if (platform === 'dingtalk') {
     return convertHtmlToDingTalkMarkdown(text);
+  }
+  if (platform === 'discord') {
+    return convertHtmlToDiscordMarkdown(text);
   }
   return escapeHtml(text);
 }
@@ -344,12 +358,12 @@ export class ActionExecutor {
       // Get or create session (scoped by chatId for per-chat isolation)
       let session = this.sessionManager.getSession(channelUser.id, chatId);
       if (!session || !session.conversationId) {
-        const source = platform === 'lark' ? 'lark' : platform === 'dingtalk' ? 'dingtalk' : 'telegram';
+        const source = platform === 'lark' ? 'lark' : platform === 'dingtalk' ? 'dingtalk' : platform === 'discord' ? 'discord' : 'telegram';
 
         // Read selected agent for this platform (defaults to Gemini)
         let savedAgent: unknown = undefined;
         try {
-          savedAgent = await (platform === 'lark' ? ProcessConfig.get('assistant.lark.agent') : platform === 'dingtalk' ? ProcessConfig.get('assistant.dingtalk.agent') : ProcessConfig.get('assistant.telegram.agent'));
+          savedAgent = await (platform === 'lark' ? ProcessConfig.get('assistant.lark.agent') : platform === 'dingtalk' ? ProcessConfig.get('assistant.dingtalk.agent') : platform === 'discord' ? ProcessConfig.get('assistant.discord.agent') : ProcessConfig.get('assistant.telegram.agent'));
         } catch {
           // ignore
         }

@@ -291,6 +291,7 @@ export interface IUnifiedIncomingMessage {
   timestamp: number;
   replyToMessageId?: string;
   action?: IMessageAction;
+  isDirect?: boolean; // True if message is from a DM channel
   raw?: unknown;
 }
 
@@ -501,7 +502,7 @@ export function pairingRequestToRow(request: IChannelPairingRequest): IChannelPa
  * Channel platform type for model configuration.
  * Includes built-in platforms and extension-contributed platforms (string).
  */
-export type ChannelPlatform = 'telegram' | 'lark' | 'dingtalk' | (string & {});
+export type ChannelPlatform = 'telegram' | 'lark' | 'dingtalk' | 'discord' | (string & {});
 
 /**
  * Type guard to check if a string is a known built-in ChannelPlatform.
@@ -539,7 +540,7 @@ export function resolveChannelConvType(backend: string): { convType: string; con
  * - empty segments are omitted
  */
 export function getChannelConversationName(platform: ChannelPlatform | PluginType, type?: string, backend?: string, chatId?: string): string {
-  const shortPlatform: Record<string, string> = { telegram: 'tg', dingtalk: 'ding' };
+  const shortPlatform: Record<string, string> = { telegram: 'tg', dingtalk: 'ding', discord: 'dc' };
   const parts: string[] = [shortPlatform[platform] ?? platform];
   if (type) parts.push(type);
   if (type === 'acp' && backend) parts.push(backend);

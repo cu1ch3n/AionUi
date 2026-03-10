@@ -717,6 +717,9 @@ export const channel = {
   // Settings Sync
   syncChannelSettings: bridge.buildProvider<IBridgeResponse, { platform: string; agent: { backend: string; customAgentId?: string; name?: string }; model?: { id: string; useModel: string } }>('channel.sync-channel-settings'),
 
+  // Discord channel list
+  getDiscordChannels: bridge.buildProvider<IBridgeResponse<Array<{ guildId: string; guildName: string; channels: Array<{ id: string; name: string }> }>>, void>('channel.get-discord-channels'),
+
   // Events
   pairingRequested: bridge.buildEmitter<IChannelPairingRequest>('channel.pairing-requested'),
   pluginStatusChanged: bridge.buildEmitter<{ pluginId: string; status: IChannelPluginStatus }>('channel.plugin-status-changed'),

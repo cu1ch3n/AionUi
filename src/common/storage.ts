@@ -5,6 +5,7 @@
  */
 
 import type { AcpBackend, AcpBackendAll, AcpBackendConfig } from '@/types/acpTypes';
+import type { IDiscordAccessConfig } from '@/channels/plugins/discord/DiscordPreflight';
 import { storage } from '@office-ai/platform';
 
 /**
@@ -115,6 +116,19 @@ export interface IConfigStorageRefer {
     customAgentId?: string;
     name?: string;
   };
+  // Discord assistant default model / Discord 助手默认模型
+  'assistant.discord.defaultModel'?: {
+    id: string;
+    useModel: string;
+  };
+  // Discord assistant agent selection / Discord 助手所使用的 Agent
+  'assistant.discord.agent'?: {
+    backend: AcpBackendAll;
+    customAgentId?: string;
+    name?: string;
+  };
+  // Discord assistant access control / Discord 助手访问控制
+  'assistant.discord.accessControl'?: IDiscordAccessConfig;
 }
 
 export interface IEnvStorageRefer {

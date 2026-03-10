@@ -356,5 +356,21 @@ export function initChannelBridge(): void {
     }
   });
 
+  // ==================== Discord Channel List ====================
+
+  /**
+   * Get Discord guild channels from the running bot
+   */
+  channel.getDiscordChannels.provider(async () => {
+    try {
+      const manager = getChannelManager();
+      const channels = await manager.getDiscordChannels();
+      return { success: true, data: channels };
+    } catch (error: any) {
+      console.error('[ChannelBridge] getDiscordChannels error:', error);
+      return { success: false, msg: error.message };
+    }
+  });
+
   console.log('[ChannelBridge] Initialized');
 }

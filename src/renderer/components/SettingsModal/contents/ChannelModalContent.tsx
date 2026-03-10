@@ -21,9 +21,10 @@ import ChannelItem from './channels/ChannelItem';
 import type { ChannelConfig } from './channels/types';
 import DingTalkConfigForm from './DingTalkConfigForm';
 import LarkConfigForm from './LarkConfigForm';
+import DiscordConfigForm from './DiscordConfigForm';
 import TelegramConfigForm from './TelegramConfigForm';
 
-type ChannelModelConfigKey = 'assistant.telegram.defaultModel' | 'assistant.lark.defaultModel' | 'assistant.dingtalk.defaultModel';
+type ChannelModelConfigKey = 'assistant.telegram.defaultModel' | 'assistant.lark.defaultModel' | 'assistant.dingtalk.defaultModel' | 'assistant.discord.defaultModel';
 
 type ExtensionFieldType = 'text' | 'password' | 'select' | 'number' | 'boolean';
 
@@ -143,9 +144,11 @@ const ChannelModalContent: React.FC = () => {
   const [pluginStatus, setPluginStatus] = useState<IChannelPluginStatus | null>(null);
   const [larkPluginStatus, setLarkPluginStatus] = useState<IChannelPluginStatus | null>(null);
   const [dingtalkPluginStatus, setDingtalkPluginStatus] = useState<IChannelPluginStatus | null>(null);
+  const [discordPluginStatus, setDiscordPluginStatus] = useState<IChannelPluginStatus | null>(null);
   const [enableLoading, setEnableLoading] = useState(false);
   const [larkEnableLoading, setLarkEnableLoading] = useState(false);
   const [dingtalkEnableLoading, setDingtalkEnableLoading] = useState(false);
+  const [discordEnableLoading, setDiscordEnableLoading] = useState(false);
   const [extensionStatuses, setExtensionStatuses] = useState<Record<string, IChannelPluginStatus>>({});
   const [extensionLoadingMap, setExtensionLoadingMap] = useState<Record<string, boolean>>({});
   const [extensionFieldValues, setExtensionFieldValues] = useState<ExtensionFieldValues>({});
@@ -153,6 +156,7 @@ const ChannelModalContent: React.FC = () => {
 
   // Track the token entered in TelegramConfigForm so the toggle handler can use it
   const telegramTokenRef = React.useRef<string>('');
+  const discordTokenRef = React.useRef<string>('');
 
   // Collapse state - true means collapsed (closed), false means expanded (open)
   const [collapseKeys, setCollapseKeys] = useState<Record<string, boolean>>({
@@ -167,6 +171,7 @@ const ChannelModalContent: React.FC = () => {
   const telegramModelSelection = useChannelModelSelection('assistant.telegram.defaultModel');
   const larkModelSelection = useChannelModelSelection('assistant.lark.defaultModel');
   const dingtalkModelSelection = useChannelModelSelection('assistant.dingtalk.defaultModel');
+  const discordModelSelection = useChannelModelSelection('assistant.discord.defaultModel');
 
   // Load plugin status
   const loadPluginStatus = useCallback(async () => {
@@ -176,11 +181,13 @@ const ChannelModalContent: React.FC = () => {
         const telegramPlugin = result.data.find((p) => p.type === 'telegram');
         const larkPlugin = result.data.find((p) => p.type === 'lark');
         const dingtalkPlugin = result.data.find((p) => p.type === 'dingtalk');
+        const discordPlugin = result.data.find((p) => p.type === 'discord');
         const extensionPlugins = result.data.filter((p) => !BUILTIN_CHANNEL_TYPES.has(p.type));
 
         setPluginStatus(telegramPlugin || null);
         setLarkPluginStatus(larkPlugin || null);
         setDingtalkPluginStatus(dingtalkPlugin || null);
+        setDiscordPluginStatus(discordPlugin || null);
         setExtensionStatuses(() => {
           const next: Record<string, IChannelPluginStatus> = {};
           for (const plugin of extensionPlugins) {
@@ -238,6 +245,8 @@ const ChannelModalContent: React.FC = () => {
         setLarkPluginStatus(status);
       } else if (status.type === 'dingtalk') {
         setDingtalkPluginStatus(status);
+      } else if (status.type === 'discord') {
+        setDiscordPluginStatus(status);
       } else if (!BUILTIN_CHANNEL_TYPES.has(status.type)) {
         setExtensionStatuses((prev) => ({
           ...prev,
@@ -377,6 +386,46 @@ const ChannelModalContent: React.FC = () => {
       Message.error(error.message);
     } finally {
       setDingtalkEnableLoading(false);
+    }
+  };
+
+  // Enable/Disable Discord plugin
+  const handleToggleDiscordPlugin = async (enabled: boolean) => {
+    setDiscordEnableLoading(true);
+    try {
+      if (enabled) {
+        const pendingToken = discordTokenRef.current.trim();
+        if (!discordPluginStatus?.hasToken && !pendingToken) {
+          Message.warning(t('settings.assistant.tokenRequired', 'Please enter a bot token first'));
+          setDiscordEnableLoading(false);
+          return;
+        }
+
+        const result = await channel.enablePlugin.invoke({
+          pluginId: 'discord_default',
+          config: pendingToken ? { token: pendingToken } : {},
+        });
+
+        if (result.success) {
+          Message.success(t('settings.discord.pluginEnabled', 'Discord bot enabled'));
+          await loadPluginStatus();
+        } else {
+          Message.error(result.msg || t('settings.discord.enableFailed', 'Failed to enable Discord plugin'));
+        }
+      } else {
+        const result = await channel.disablePlugin.invoke({ pluginId: 'discord_default' });
+
+        if (result.success) {
+          Message.success(t('settings.discord.pluginDisabled', 'Discord bot disabled'));
+          await loadPluginStatus();
+        } else {
+          Message.error(result.msg || t('settings.discord.disableFailed', 'Failed to disable Discord plugin'));
+        }
+      }
+    } catch (error: any) {
+      Message.error(error.message);
+    } finally {
+      setDiscordEnableLoading(false);
     }
   };
 
@@ -566,6 +615,28 @@ const ChannelModalContent: React.FC = () => {
       content: <DingTalkConfigForm pluginStatus={dingtalkPluginStatus} modelSelection={dingtalkModelSelection} onStatusChange={setDingtalkPluginStatus} />,
     };
 
+    const discordChannel: ChannelConfig = {
+      id: 'discord',
+      title: t('settings.channels.discordTitle', 'Discord'),
+      description: t('settings.channels.discordDesc', 'Chat with AionUi assistant via Discord'),
+      status: 'active',
+      enabled: discordPluginStatus?.enabled || false,
+      disabled: discordEnableLoading,
+      isConnected: discordPluginStatus?.connected || false,
+      botUsername: discordPluginStatus?.botUsername,
+      defaultModel: discordModelSelection.currentModel?.useModel,
+      content: (
+        <DiscordConfigForm
+          pluginStatus={discordPluginStatus}
+          modelSelection={discordModelSelection}
+          onStatusChange={setDiscordPluginStatus}
+          onTokenChange={(token) => {
+            discordTokenRef.current = token;
+          }}
+        />
+      ),
+    };
+
     const extensionChannels: ChannelConfig[] = Object.values(extensionStatuses)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((status) => ({
@@ -592,25 +663,17 @@ const ChannelModalContent: React.FC = () => {
         disabled: true,
         content: <div className='text-14px text-t-secondary py-12px'>{t('settings.channels.comingSoonDesc', 'Support for {{channel}} is coming soon', { channel: t('settings.channels.slackTitle', 'Slack') })}</div>,
       },
-      {
-        id: 'discord',
-        title: t('settings.channels.discordTitle', 'Discord'),
-        description: t('settings.channels.discordDesc', 'Chat with AionUi assistant via Discord'),
-        status: 'coming_soon' as const,
-        enabled: false,
-        disabled: true,
-        content: <div className='text-14px text-t-secondary py-12px'>{t('settings.channels.comingSoonDesc', 'Support for {{channel}} is coming soon', { channel: t('settings.channels.discordTitle', 'Discord') })}</div>,
-      },
     ].filter((channel) => !extensionTypeSet.has(String(channel.id).toLowerCase()));
 
-    return [telegramChannel, larkChannel, dingtalkChannel, ...extensionChannels, ...comingSoonChannels];
-  }, [pluginStatus, larkPluginStatus, dingtalkPluginStatus, extensionStatuses, extensionLoadingMap, telegramModelSelection, larkModelSelection, dingtalkModelSelection, enableLoading, larkEnableLoading, dingtalkEnableLoading, renderExtensionConfigForm, t]);
+    return [telegramChannel, larkChannel, dingtalkChannel, discordChannel, ...extensionChannels, ...comingSoonChannels];
+  }, [pluginStatus, larkPluginStatus, dingtalkPluginStatus, discordPluginStatus, extensionStatuses, extensionLoadingMap, telegramModelSelection, larkModelSelection, dingtalkModelSelection, discordModelSelection, enableLoading, larkEnableLoading, dingtalkEnableLoading, discordEnableLoading, renderExtensionConfigForm, t]);
 
   // Get toggle handler for each channel
   const getToggleHandler = (channelId: string) => {
     if (channelId === 'telegram') return handleTogglePlugin;
     if (channelId === 'lark') return handleToggleLarkPlugin;
     if (channelId === 'dingtalk') return handleToggleDingtalkPlugin;
+    if (channelId === 'discord') return handleToggleDiscordPlugin;
     if (extensionStatuses[channelId]) {
       return (enabled: boolean) => {
         void handleToggleExtensionPlugin(channelId, enabled);
@@ -618,7 +681,7 @@ const ChannelModalContent: React.FC = () => {
     }
     return undefined;
   };
-  const channelGuideText = t('settings.webui.featureChannelsDesc', { defaultValue: 'Connect Telegram, Lark, and DingTalk to interact with AionUi from IM apps.' });
+  const channelGuideText = t('settings.webui.featureChannelsDesc', { defaultValue: 'Connect Telegram, Discord, Lark, and DingTalk to interact with AionUi from IM apps.' });
   const channelSetupSteps = [t('settings.channels.selectFirst', { defaultValue: 'Select a channel and configure credentials.' }), t('settings.channels.enableAfterConfig', { defaultValue: 'Enable it and start chatting with your AI agent.' })];
 
   return (

@@ -16,6 +16,7 @@ import { createAgentSelectionKeyboard, createHelpKeyboard, createMainMenuKeyboar
 import { getChannelConversationName, resolveChannelConvType } from '../types';
 import { createAgentSelectionCard, createFeaturesCard, createHelpCard, createMainMenuCard, createPairingGuideCard, createSessionStatusCard, createSettingsCard, createTipsCard } from '../plugins/lark/LarkCards';
 import { createAgentSelectionCard as createDingTalkAgentSelectionCard, createFeaturesCard as createDingTalkFeaturesCard, createHelpCard as createDingTalkHelpCard, createMainMenuCard as createDingTalkMainMenuCard, createPairingGuideCard as createDingTalkPairingGuideCard, createSessionStatusCard as createDingTalkSessionStatusCard, createSettingsCard as createDingTalkSettingsCard, createTipsCard as createDingTalkTipsCard } from '../plugins/dingtalk/DingTalkCards';
+import { createMainMenuButtons as createDiscordMainMenuButtons, createAgentSelectionButtons as createDiscordAgentSelectionButtons } from '../plugins/discord/DiscordComponents';
 import type { ChannelAgentType, PluginType } from '../types';
 import type { ActionHandler, IRegisteredAction } from './types';
 import { SystemActionNames, createErrorResponse, createSuccessResponse } from './types';
@@ -42,7 +43,7 @@ export async function getChannelDefaultModel(platform: PluginType): Promise<TPro
     };
 
     // Try to get saved model selection
-    const savedModel = platform === 'lark' ? await ProcessConfig.get('assistant.lark.defaultModel') : platform === 'dingtalk' ? await ProcessConfig.get('assistant.dingtalk.defaultModel') : await ProcessConfig.get('assistant.telegram.defaultModel');
+    const savedModel = platform === 'lark' ? await ProcessConfig.get('assistant.lark.defaultModel') : platform === 'dingtalk' ? await ProcessConfig.get('assistant.dingtalk.defaultModel') : platform === 'discord' ? await ProcessConfig.get('assistant.discord.defaultModel') : await ProcessConfig.get('assistant.telegram.defaultModel');
     if (savedModel?.id && savedModel?.useModel) {
       // Google Auth is frontend-only (OAuth browser flow), not usable in channels.
       // Fall through to find a provider with a valid API key instead.
@@ -136,12 +137,12 @@ export const handleSessionNew: ActionHandler = async (context) => {
   sessionManager.clearSession(context.channelUser.id, context.chatId);
 
   const platform = context.platform;
-  const source = platform === 'lark' ? 'lark' : platform === 'dingtalk' ? 'dingtalk' : 'telegram';
+  const source = platform === 'lark' ? 'lark' : platform === 'dingtalk' ? 'dingtalk' : platform === 'discord' ? 'discord' : 'telegram';
 
   // Selected agent (defaults to Gemini)
   let savedAgent: unknown = undefined;
   try {
-    savedAgent = await (platform === 'lark' ? ProcessConfig.get('assistant.lark.agent') : platform === 'dingtalk' ? ProcessConfig.get('assistant.dingtalk.agent') : ProcessConfig.get('assistant.telegram.agent'));
+    savedAgent = await (platform === 'lark' ? ProcessConfig.get('assistant.lark.agent') : platform === 'dingtalk' ? ProcessConfig.get('assistant.dingtalk.agent') : platform === 'discord' ? ProcessConfig.get('assistant.discord.agent') : ProcessConfig.get('assistant.telegram.agent'));
   } catch {
     // ignore
   }
@@ -203,7 +204,7 @@ export const handleSessionNew: ActionHandler = async (context) => {
   const agentType = convType as ChannelAgentType;
   const session = sessionManager.createSessionWithConversation(context.channelUser, result.conversation.id, agentType, undefined, channelChatId);
 
-  const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : createMainMenuKeyboard();
+  const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : context.platform === 'discord' ? createDiscordMainMenuButtons() : createMainMenuKeyboard();
   return createSuccessResponse({
     type: 'text',
     text: `🆕 <b>New Session Created</b>\n\nSession ID: <code>${session.id.slice(-8)}</code>\n\nYou can start a new conversation now!`,
@@ -435,6 +436,15 @@ export const handleAgentShow: ActionHandler = async (context) => {
     });
   }
 
+  if (context.platform === 'discord') {
+    return createSuccessResponse({
+      type: 'text',
+      text: ['🔄 <b>Switch Agent</b>', '', 'Select an AI agent for your conversations:', '', `Current: <b>${getAgentDisplayName(currentAgent)}</b>`].join('\n'),
+      parseMode: 'HTML',
+      replyMarkup: createDiscordAgentSelectionButtons(availableAgents, currentAgent),
+    });
+  }
+
   return createSuccessResponse({
     type: 'text',
     text: ['🔄 <b>Switch Agent</b>', '', 'Select an AI agent for your conversations:', '', `Current: <b>${getAgentDisplayName(currentAgent)}</b>`].join('\n'),
@@ -472,7 +482,7 @@ export const handleAgentSelect: ActionHandler = async (context, params) => {
 
   // If same agent, no need to switch
   if (existingSession?.agentType === newAgentType) {
-    const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : createMainMenuKeyboard();
+    const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : context.platform === 'discord' ? createDiscordMainMenuButtons() : createMainMenuKeyboard();
     return createSuccessResponse({
       type: 'text',
       text: `✓ Already using <b>${getAgentDisplayName(newAgentType)}</b>`,
@@ -499,7 +509,7 @@ export const handleAgentSelect: ActionHandler = async (context, params) => {
   // Create new session with the selected agent type (scoped by chatId)
   const session = sessionManager.createSession(context.channelUser, newAgentType, undefined, context.chatId);
 
-  const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : createMainMenuKeyboard();
+  const markup = context.platform === 'lark' ? createMainMenuCard() : context.platform === 'dingtalk' ? createDingTalkMainMenuCard() : context.platform === 'discord' ? createDiscordMainMenuButtons() : createMainMenuKeyboard();
   return createSuccessResponse({
     type: 'text',
     text: [`✓ <b>Switched to ${getAgentDisplayName(newAgentType)}</b>`, '', 'A new conversation has been started.', '', 'Send a message to begin!'].join('\n'),

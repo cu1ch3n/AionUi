@@ -10,6 +10,7 @@ import { getPairingService } from '../pairing/PairingService';
 import { createPairingCodeKeyboard, createPairingStatusKeyboard, createMainMenuKeyboard } from '../plugins/telegram/TelegramKeyboards';
 import { createPairingCard, createPairingStatusCard, createMainMenuCard, createPairingHelpCard } from '../plugins/lark/LarkCards';
 import { createMainMenuCard as createDingTalkMainMenuCard, createPairingCard as createDingTalkPairingCard, createPairingStatusCard as createDingTalkPairingStatusCard, createPairingHelpCard as createDingTalkPairingHelpCard } from '../plugins/dingtalk/DingTalkCards';
+import { createMainMenuButtons as createDiscordMainMenuButtons, createPairingCodeButtons as createDiscordPairingCodeButtons, createPairingStatusButtons as createDiscordPairingStatusButtons, createPairingHelpButtons as createDiscordPairingHelpButtons } from '../plugins/discord/DiscordComponents';
 
 /**
  * PlatformActions - Handlers for platform-specific actions
@@ -30,6 +31,9 @@ function getMainMenuMarkup(platform: string) {
   if (platform === 'dingtalk') {
     return createDingTalkMainMenuCard();
   }
+  if (platform === 'discord') {
+    return createDiscordMainMenuButtons();
+  }
   return createMainMenuKeyboard();
 }
 
@@ -42,6 +46,9 @@ function getPairingCodeMarkup(platform: string, code: string) {
   }
   if (platform === 'dingtalk') {
     return createDingTalkPairingCard(code);
+  }
+  if (platform === 'discord') {
+    return createDiscordPairingCodeButtons();
   }
   return createPairingCodeKeyboard();
 }
@@ -56,6 +63,9 @@ function getPairingStatusMarkup(platform: string, code: string) {
   if (platform === 'dingtalk') {
     return createDingTalkPairingStatusCard(code);
   }
+  if (platform === 'discord') {
+    return createDiscordPairingStatusButtons();
+  }
   return createPairingStatusKeyboard();
 }
 
@@ -68,6 +78,9 @@ function getPairingHelpMarkup(platform: string) {
   }
   if (platform === 'dingtalk') {
     return createDingTalkPairingHelpCard();
+  }
+  if (platform === 'discord') {
+    return createDiscordPairingHelpButtons();
   }
   return createPairingCodeKeyboard();
 }
@@ -181,7 +194,7 @@ export const handlePairingCheck: ActionHandler = async (context) => {
  */
 export const handlePairingHelp: ActionHandler = async (context) => {
   const platform = context.platform;
-  const platformName = platform === 'lark' ? 'Lark/Feishu' : platform === 'dingtalk' ? 'DingTalk' : 'Telegram';
+  const platformName = platform === 'lark' ? 'Lark/Feishu' : platform === 'dingtalk' ? 'DingTalk' : platform === 'discord' ? 'Discord' : 'Telegram';
 
   return createSuccessResponse({
     type: 'text',
