@@ -10,6 +10,7 @@ import { BasePlugin } from '../BasePlugin';
 import { DISCORD_MESSAGE_LIMIT, splitMessage, toDiscordSendOptions, toUnifiedIncomingMessage, toUnifiedInteraction } from './DiscordAdapter';
 import { extractAction, extractCategory } from './DiscordComponents';
 import { type IDiscordAccessConfig, shouldProcessMessage, stripBotMention } from './DiscordPreflight';
+import { resolveSystemProxy } from './proxyHelper';
 
 /**
  * DiscordPlugin - Discord Bot integration for Personal Assistant
@@ -38,10 +39,14 @@ export class DiscordPlugin extends BasePlugin {
       throw new Error('Discord bot token is required');
     }
 
+    // Resolve system proxy for Discord (REST + WebSocket gateway)
+    const proxy = await resolveSystemProxy('https://discord.com');
+
     // Create client instance with required intents
     this.client = new Client({
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],
       partials: [Partials.Channel], // Required for DM support
+      rest: proxy ? { agent: proxy.restAgent } : undefined,
     });
 
     // Setup handlers
@@ -399,8 +404,11 @@ export class DiscordPlugin extends BasePlugin {
    * Used by Settings UI to validate token before saving
    */
   static async testConnection(token: string): Promise<{ success: boolean; botInfo?: BotInfo; error?: string }> {
+    const proxy = await resolveSystemProxy('https://discord.com');
+
     const client = new Client({
       intents: [GatewayIntentBits.Guilds],
+      rest: proxy ? { agent: proxy.restAgent } : undefined,
     });
 
     try {
