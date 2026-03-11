@@ -182,10 +182,14 @@ export function convertHtmlToDiscordMarkdown(text: string): string {
         .join('\n')
     )
     .replace(/<a href="(.*?)">([\s\S]*?)<\/a>/g, '[$2]($1)')
+    // Strip any remaining HTML tags (e.g. <p>, <br>, <div>) before entity decoding
+    .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"');
+    .replace(/&quot;/g, '"')
+    // Collapse 3+ consecutive newlines — Discord renders \n\n with extra visual spacing
+    .replace(/\n{3,}/g, '\n\n');
 }
 
 // ==================== Outgoing Message Conversion ====================
@@ -227,8 +231,10 @@ export function toDiscordSendOptions(message: IUnifiedOutgoingMessage): DiscordS
 // ==================== Message Length Utilities ====================
 
 /**
- * Split long text into chunks that fit Discord's message limit
- * TODO: Splitting can break triple-backtick code blocks mid-block, producing unclosed fences.
+ * Split long text into chunks that fit Discord's message limit.
+ * Avoids splitting inside triple-backtick code blocks — if the candidate
+ * split point falls inside a fenced block, the split is moved to just
+ * before the opening fence (or just after the closing fence).
  */
 export function splitMessage(text: string, maxLength: number = DISCORD_MESSAGE_LIMIT): string[] {
   if (text.length <= maxLength) {
@@ -257,6 +263,28 @@ export function splitMessage(text: string, maxLength: number = DISCORD_MESSAGE_L
       const lastSpace = remaining.lastIndexOf(' ', maxLength);
       if (lastSpace > newlineSearchStart) {
         splitIndex = lastSpace + 1;
+      }
+    }
+
+    // Check if splitIndex falls inside an unclosed code block.
+    // Count ``` occurrences before the split point — odd means we're inside a block.
+    const beforeSplit = remaining.slice(0, splitIndex);
+    const fenceCount = (beforeSplit.match(/```/g) || []).length;
+    if (fenceCount % 2 !== 0) {
+      // Inside a code block — move split to before the opening fence
+      const lastFenceStart = beforeSplit.lastIndexOf('```');
+      // Find the start of the line containing the opening fence
+      const lineStart = beforeSplit.lastIndexOf('\n', lastFenceStart);
+      if (lineStart > 0) {
+        splitIndex = lineStart;
+      } else {
+        // Code block starts at the beginning — try splitting after the closing fence instead
+        const closingFence = remaining.indexOf('```', lastFenceStart + 3);
+        if (closingFence !== -1) {
+          const afterClosing = remaining.indexOf('\n', closingFence + 3);
+          splitIndex = afterClosing !== -1 ? afterClosing + 1 : closingFence + 3;
+        }
+        // If no closing fence found, fall through with the original splitIndex
       }
     }
 
