@@ -23,7 +23,7 @@ import { createMainMenuCard as createDingTalkMainMenuCard, createErrorRecoveryCa
 import { convertHtmlToDingTalkMarkdown } from '../plugins/dingtalk/DingTalkAdapter';
 import { createMainMenuKeyboard, createToolConfirmationKeyboard } from '../plugins/telegram/TelegramKeyboards';
 import { createMainMenuButtons as createDiscordMainMenuButtons, createToolConfirmationButtons as createDiscordToolConfirmationButtons, createErrorRecoveryButtons as createDiscordErrorRecoveryButtons } from '../plugins/discord/DiscordComponents';
-import { convertHtmlToDiscordMarkdown } from '../plugins/discord/DiscordAdapter';
+import { convertHtmlToDiscordMarkdown, DISCORD_MESSAGE_LIMIT, splitMessage } from '../plugins/discord/DiscordAdapter';
 import { escapeHtml } from '../plugins/telegram/TelegramAdapter';
 import type { ChannelAgentType, IUnifiedIncomingMessage, IUnifiedOutgoingMessage, PluginType } from '../types';
 import type { PluginManager } from './PluginManager';
@@ -530,7 +530,9 @@ export class ActionExecutor {
       // 节流控制：使用定时器机制确保最后一条消息能被发送
       // Throttle control: use timer mechanism to ensure last message is sent
       let lastUpdateTime = 0;
-      const UPDATE_THROTTLE_MS = 500; // Update at most every 500ms
+      // Discord per-route rate limits are dynamic (communicated via headers).
+      // Use a long interval for Discord to send larger chunks per edit and avoid stale-edit backlog.
+      const UPDATE_THROTTLE_MS = context.platform === 'discord' ? 3000 : 500;
       let pendingUpdateTimer: ReturnType<typeof setTimeout> | null = null;
       let pendingMessage: IUnifiedOutgoingMessage | null = null;
 
@@ -546,6 +548,34 @@ export class ActionExecutor {
       // Function to perform message edit
       const doEditMessage = async (msg: IUnifiedOutgoingMessage) => {
         lastUpdateTime = Date.now();
+
+        // Discord: progressively send new messages when content overflows 2000 chars
+        if (context.platform === 'discord' && msg.text && msg.text.length > DISCORD_MESSAGE_LIMIT) {
+          const chunks = splitMessage(msg.text, DISCORD_MESSAGE_LIMIT);
+
+          // Send new messages for overflow chunks we don't have yet
+          while (sentMessageIds.length < chunks.length) {
+            const prevIdx = sentMessageIds.length - 1;
+            const newIdx = sentMessageIds.length;
+            // Finalize previous message with correct word-boundary content
+            try {
+              await context.editMessage(sentMessageIds[prevIdx], { ...msg, text: chunks[prevIdx], replyMarkup: undefined });
+            } catch { /* ignore */ }
+            // Send new message for the next chunk
+            try {
+              const newMsgId = await context.sendMessage({ ...msg, text: chunks[newIdx], replyMarkup: undefined });
+              sentMessageIds.push(newMsgId);
+            } catch { break; }
+          }
+
+          // Edit the last message with its current chunk content
+          const lastIdx = Math.min(sentMessageIds.length, chunks.length) - 1;
+          try {
+            await context.editMessage(sentMessageIds[lastIdx], { ...msg, text: chunks[lastIdx], replyMarkup: undefined });
+          } catch { /* ignore */ }
+          return;
+        }
+
         const targetMsgId = sentMessageIds[sentMessageIds.length - 1] || thinkingMsgId;
         try {
           await context.editMessage(targetMsgId, msg);
@@ -667,7 +697,24 @@ export class ActionExecutor {
         // Use actual content of last message, add action buttons (based on platform)
         const responseMarkup = getResponseActionsMarkup(context.platform as PluginType, lastMessageContent?.text);
         const finalMessage: IUnifiedOutgoingMessage = lastMessageContent ? { ...lastMessageContent, replyMarkup: responseMarkup } : { type: 'text', text: '✅ Done', parseMode: 'HTML', replyMarkup: responseMarkup };
-        await context.editMessage(lastMsgId, finalMessage);
+
+        // Discord: finalize multi-message response (streaming may have already created overflow messages)
+        if (context.platform === 'discord' && finalMessage.text && finalMessage.text.length > DISCORD_MESSAGE_LIMIT) {
+          const chunks = splitMessage(finalMessage.text, DISCORD_MESSAGE_LIMIT);
+          // Send new messages for any remaining overflow chunks
+          while (sentMessageIds.length < chunks.length) {
+            const idx = sentMessageIds.length;
+            try {
+              const newMsgId = await context.sendMessage({ ...finalMessage, text: chunks[idx], replyMarkup: undefined });
+              sentMessageIds.push(newMsgId);
+            } catch { break; }
+          }
+          // Edit the last message with final content + action buttons
+          const lastIdx = chunks.length - 1;
+          await context.editMessage(sentMessageIds[lastIdx], { ...finalMessage, text: chunks[lastIdx], replyMarkup: responseMarkup });
+        } else {
+          await context.editMessage(lastMsgId, finalMessage);
+        }
       } catch {
         // 忽略最终编辑错误
         // Ignore final edit error

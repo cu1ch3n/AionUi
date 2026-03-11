@@ -218,22 +218,9 @@ export class DiscordPlugin extends BasePlugin {
     try {
       const msg = await textChannel.messages.fetch(messageId);
 
-      if (content.length <= DISCORD_MESSAGE_LIMIT) {
-        // Fits in one message — just edit
-        await msg.edit({ content, components });
-      } else {
-        // Content exceeds limit: edit first chunk, send overflow as new messages
-        const chunks = splitMessage(content, DISCORD_MESSAGE_LIMIT);
-        await msg.edit({ content: chunks[0] });
-
-        for (let i = 1; i < chunks.length; i++) {
-          const isLastChunk = i === chunks.length - 1;
-          await textChannel.send({
-            content: chunks[i],
-            components: isLastChunk ? components : undefined,
-          });
-        }
-      }
+      // Truncate to Discord limit — splitting is handled by the caller for final messages
+      const safeContent = content.length > DISCORD_MESSAGE_LIMIT ? content.slice(0, DISCORD_MESSAGE_LIMIT) : content;
+      await msg.edit({ content: safeContent, components });
     } catch (error: any) {
       // Ignore "Unknown Message" errors (message may have been deleted)
       if (error.code === 10008) {
