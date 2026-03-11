@@ -315,6 +315,14 @@ export class ActionExecutor {
       editMessage: async (msgId, msg) => plugin.editMessage(chatId, msgId, msg),
     };
 
+    // Convert HTML text to platform-native format for action/system messages
+    const formatActionMessage = (msg: IUnifiedOutgoingMessage): IUnifiedOutgoingMessage => {
+      if (msg.parseMode === 'HTML' && msg.text && platform === 'discord') {
+        return { ...msg, text: convertHtmlToDiscordMarkdown(msg.text) };
+      }
+      return msg;
+    };
+
     try {
       // Check if user is authorized
       const isAuthorized = this.pairingService.isUserAuthorized(user.id, platform);
@@ -323,7 +331,7 @@ export class ActionExecutor {
       if (content.type === 'command' && content.text === '/start') {
         const result = await handlePairingShow(context);
         if (result.message) {
-          await context.sendMessage(result.message);
+          await context.sendMessage(formatActionMessage(result.message));
         }
         return;
       }
@@ -332,7 +340,7 @@ export class ActionExecutor {
       if (!isAuthorized) {
         const result = await handlePairingShow(context);
         if (result.message) {
-          await context.sendMessage(result.message);
+          await context.sendMessage(formatActionMessage(result.message));
         }
         return;
       }
@@ -489,15 +497,15 @@ export class ActionExecutor {
       const result = await action.handler(context, params);
 
       if (result.message) {
-        await context.sendMessage(result.message);
+        await context.sendMessage(formatActionMessage(result.message));
       }
     } catch (error: any) {
       console.error(`[ActionExecutor] Action ${actionName} failed:`, error);
-      await context.sendMessage({
+      await context.sendMessage(formatActionMessage({
         type: 'text',
         text: `❌ Action failed: ${error.message}`,
         parseMode: 'HTML',
-      });
+      }));
     }
   }
 

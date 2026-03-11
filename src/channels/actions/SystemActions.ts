@@ -286,7 +286,7 @@ export const handleHelpShow: ActionHandler = async (context) => {
   }
   return createSuccessResponse({
     type: 'text',
-    text: ['❓ <b>AionUi Assistant</b>', '', 'A remote assistant to interact with AionUi via Telegram.', '', '<b>Common Actions:</b>', '• 🆕 New Chat - Start a new session', '• 📊 Status - View current session status', '• ❓ Help - Show this help message', '', 'Send a message to chat with the AI assistant.'].join('\n'),
+    text: ['❓ <b>AionUi Assistant</b>', '', `A remote assistant to interact with AionUi via ${context.platform === 'discord' ? 'Discord' : 'Telegram'}.`, '', '<b>Common Actions:</b>', '• 🆕 New Chat - Start a new session', '• 📊 Status - View current session status', '• ❓ Help - Show this help message', '', 'Send a message to chat with the AI assistant.'].join('\n'),
     parseMode: 'HTML',
     replyMarkup: createHelpKeyboard(),
   });
