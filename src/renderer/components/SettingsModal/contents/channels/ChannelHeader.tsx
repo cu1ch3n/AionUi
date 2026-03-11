@@ -26,8 +26,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel, onToggleEnabled 
     telegram: { src: ChannelTelegramLogo, alt: 'Telegram' },
     lark: { src: ChannelLarkLogo, alt: 'Lark' },
     dingtalk: { src: ChannelDingTalkLogo, alt: 'DingTalk' },
-    slack: { src: ChannelSlackLogo, alt: 'Slack' },
     discord: { src: ChannelDiscordLogo, alt: 'Discord' },
+    slack: { src: ChannelSlackLogo, alt: 'Slack' },
   };
   const builtinLogo = channelLogoMap[channel.id];
   // Extension channels may provide a custom icon via ChannelConfig

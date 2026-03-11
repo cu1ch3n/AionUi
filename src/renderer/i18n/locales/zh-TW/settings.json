@@ -247,7 +247,7 @@
   "webui.resetPasswordWarning": "請妥善保管重設後的密碼！",
   "webui.featureRemoteDesc": "啟用 WebUI 後，你可以透過手機或遠端瀏覽器存取 AionUi。",
   "webui.featureChannelsTitle": "Messaging Control",
-  "webui.featureChannelsDesc": "連接 Telegram、Lark、釘釘，在即時通訊軟體中與 AionUi 互動。",
+  "webui.featureChannelsDesc": "連接 Telegram、Lark、釘釘、Discord，在即時通訊軟體中與 AionUi 互動。",
   "webui.goToChannels": "前往 Channels",
   "assistant.telegramConfig": "Telegram Bot Configuration",
   "assistant.botToken": "Bot Token",

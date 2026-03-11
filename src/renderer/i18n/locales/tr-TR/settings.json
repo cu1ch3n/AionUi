@@ -247,7 +247,7 @@
   "webui.resetPasswordWarning": "Lütfen sıfırlanan şifreyi güvenli bir yerde saklayın!",
   "webui.featureRemoteDesc": "WebUI'yi etkinleştirerek telefonunuzdan veya uzak tarayıcıdan AionUi'ye erişebilirsiniz.",
   "webui.featureChannelsTitle": "Messaging Control",
-  "webui.featureChannelsDesc": "Telegram, Lark ve DingTalk'u bağlayarak IM uygulamalarından AionUi ile etkileşime geçin.",
+  "webui.featureChannelsDesc": "Telegram, Lark, DingTalk ve Discord'u bağlayarak IM uygulamalarından AionUi ile etkileşime geçin.",
   "webui.goToChannels": "Channels'a Git",
   "assistant.telegramConfig": "Telegram Bot Yapılandırması",
   "assistant.botToken": "Bot Token",

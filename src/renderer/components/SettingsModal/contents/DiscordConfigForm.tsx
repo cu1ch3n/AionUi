@@ -550,44 +550,6 @@ const DiscordConfigForm: React.FC<DiscordConfigFormProps> = ({ pluginStatus, mod
         </PreferenceRow>
       </div>
 
-      {/* Next Steps Guide - show when bot is enabled and no authorized users yet */}
-      {pluginStatus?.enabled && pluginStatus?.connected && authorizedUsers.length === 0 && (
-        <div className='bg-blue-50 dark:bg-blue-900/20 rd-12px p-16px border border-blue-200 dark:border-blue-800'>
-          <SectionHeader title={t('settings.assistant.nextSteps', 'Next Steps')} />
-          <div className='text-14px text-t-secondary space-y-8px'>
-            <p className='m-0'>
-              <strong>1.</strong>{' '}
-              <a
-                href={DISCORD_DEV_PORTAL_URL}
-                onClick={(e) => {
-                  e.preventDefault();
-                  openExternalUrl(DISCORD_DEV_PORTAL_URL).catch(console.error);
-                }}
-              >
-                {t('settings.discord.devConsoleLink', 'Discord Developer Portal')}
-              </a>
-              {' — '}
-              {t('settings.discord.step1', 'Create an application in the developer portal')}
-            </p>
-            <p className='m-0'>
-              <strong>2.</strong> {t('settings.discord.step2', 'Add a Bot and enable "Message Content" privileged intent in Bot settings')}
-            </p>
-            <p className='m-0'>
-              <strong>3.</strong> {t('settings.discord.step3', 'Copy the bot token and paste it above')}
-            </p>
-            <p className='m-0'>
-              <strong>4.</strong> {t('settings.discord.step4', 'Invite bot to server using OAuth2 URL with bot + applications.commands scopes')}
-            </p>
-            <p className='m-0'>
-              <strong>5.</strong> {t('settings.discord.step5', 'Send a message to the bot in Discord to initiate pairing')}
-            </p>
-            <p className='m-0'>
-              <strong>6.</strong> {t('settings.discord.step6', 'A pairing request will appear below. Click "Approve" to authorize the user.')}
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Pending Pairings - show when bot is enabled and no authorized users yet */}
       {pluginStatus?.enabled && authorizedUsers.length === 0 && (
         <div className='bg-fill-1 rd-12px pt-16px pr-16px pb-16px pl-0'>

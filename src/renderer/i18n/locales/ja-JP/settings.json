@@ -247,7 +247,7 @@
   "webui.resetPasswordWarning": "リセット後のパスワードを大切に保管してください！",
   "webui.featureRemoteDesc": "WebUI を有効にすると、スマホやリモートブラウザから AionUi にアクセスできます。",
   "webui.featureChannelsTitle": "Messaging Control",
-  "webui.featureChannelsDesc": "Telegram、Lark、DingTalk を接続して、IM アプリから AionUi とやり取りできます。",
+  "webui.featureChannelsDesc": "Telegram、Lark、DingTalk、Discord を接続して、IM アプリから AionUi とやり取りできます。",
   "webui.goToChannels": "Channels へ",
   "assistant.telegramConfig": "Telegram Bot Configuration",
   "assistant.botToken": "Bot Token",
