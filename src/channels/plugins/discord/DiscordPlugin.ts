@@ -138,7 +138,7 @@ export class DiscordPlugin extends BasePlugin {
         const fetched = await guild.channels.fetch();
         const textChannels: Array<{ id: string; name: string }> = [];
         for (const [, ch] of fetched) {
-          if (ch && ch.isTextBased() && !ch.isThread() && ch.type !== ChannelType.GuildCategory) {
+          if (ch && (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildAnnouncement)) {
             textChannels.push({ id: ch.id, name: ch.name });
           }
         }
